@@ -1,0 +1,20 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group 'gg.aswedrown.ptranscodegen'
+version '1'
+
+compileJava.options.encoding = "UTF-8"
+compileTestJava.options.encoding = "UTF-8"
+
+application {
+    mainClassName = 'gg.aswedrown.ptranscodegen.PTransCodeGen'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': "${application.mainClassName}"
+    }
+}
