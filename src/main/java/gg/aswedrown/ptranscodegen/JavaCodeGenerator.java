@@ -77,17 +77,7 @@ public class JavaCodeGenerator implements CodeGenerator {
     @Override
     public void appendGeneratedSourcesWrap(StringBuilder modifiedSrc, List<String> allPackets) {
         modifiedSrc.append("        String packetClassNameUpper = packet.getClass().getSimpleName().toUpperCase();\n" +
-                "        PacketWrapper.PacketCase packetType;\n" +
-                "\n" +
-                "        try {\n" +
-                "            packetType = PacketWrapper.PacketCase.valueOf(packetClassNameUpper);\n" +
-                "        } catch (IllegalArgumentException ex) {\n" +
-                "            // Тип этого пакета отсутствует в енуме PacketWrapper.PacketCase.\n" +
-                "            // Значит, этот пакет не указан в спецификации (packets.proto - message PacketWrapper).\n" +
-                "            // Нужно указать! (вручную)\n" +
-                "            throw new RuntimeException(\"illegal packet type: \"\n" +
-                "                    + packetClassNameUpper + \" (\" + packet.getClass().getName() + \")\");\n" +
-                "        }\n" +
+                "        PacketWrapper.PacketCase packetType = getPacketCase(packet.getClass());\n" +
                 "\n" +
                 "        switch (packetType) {\n");
 
