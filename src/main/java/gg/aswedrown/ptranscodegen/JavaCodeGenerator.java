@@ -6,7 +6,7 @@ import java.util.List;
 public class JavaCodeGenerator implements CodeGenerator {
 
     private static final String WRAP_MTD_DECL
-            = "private static byte[] internalGeneratedWrap(Message packet) {";
+            = "private static byte[] internalGeneratedWrap(Message packet, int sequence, int ack, int ackBitfield) {";
 
     private static final String UNWRAP_MTD_DECL
             = "private static UnwrappedPacketData internalGeneratedUnwrap(byte[] data) throws InvalidProtocolBufferException {";
@@ -93,9 +93,15 @@ public class JavaCodeGenerator implements CodeGenerator {
 
         for (String packetType : allPackets)
             modifiedSrc.append("            case ").append(packetType.toUpperCase()).append(":\n")
-                    .append("                return PacketWrapper.newBuilder().set").append(packetType)
-                    .append("(\n                        (").append(packetType)
-                    .append(") packet).build().toByteArray();\n\n");
+                    .append("                return PacketWrapper.newBuilder()\n" +
+                            "                        .setSequence(sequence)\n" +
+                            "                        .setAck(ack)\n" +
+                            "                        .setAckBitfield(ackBitfield)\n" +
+                            "                        .set").append(Convert.snakeToCamel(packetType))
+                    .append("((").append(Convert.snakeToCamel(packetType))
+                    .append(") packet)\n" +
+                            "                        .build()\n" +
+                            "                        .toByteArray();\n\n");
 
         modifiedSrc.append("            default:\n" +
                 "                // Код \"case ...\" для пакетов этого типа отсутствует выше.\n" +
@@ -108,14 +114,20 @@ public class JavaCodeGenerator implements CodeGenerator {
     @Override
     public void appendGeneratedSourcesUnrap(StringBuilder modifiedSrc, List<String> allPackets) {
         modifiedSrc.append("        PacketWrapper wrapper = PacketWrapper.parseFrom(data);\n" +
+                "\n" +
+                "        int sequence    = wrapper.getSequence();\n" +
+                "        int ack         = wrapper.getAck();\n" +
+                "        int ackBitfield = wrapper.getAckBitfield();\n" +
+                "\n" +
                 "        PacketWrapper.PacketCase packetType = wrapper.getPacketCase();\n" +
                 "\n" +
                 "        switch (packetType) {\n");
 
         for (String packetType : allPackets)
             modifiedSrc.append("            case ").append(packetType.toUpperCase()).append(":\n" +
-                    "                return new UnwrappedPacketData(packetType, wrapper.get")
-                    .append(packetType).append("());\n\n");
+                    "                return new UnwrappedPacketData(\n" +
+                    "                        sequence, ack, ackBitfield, packetType, wrapper.get")
+                    .append(Convert.snakeToCamel(packetType)).append("());\n\n");
 
         modifiedSrc.append("            default:\n" +
                 "                // Неизвестный пакет - он будет проигнорирован (не передан никакому PacketListener'у).\n" +

@@ -77,17 +77,18 @@ public class PTransCodeGen {
                 } else if (line.startsWith(ALL_PACKETS_LIST_SPEC_START_IDENTIFIER))
                     allPacketsListStarted = true;
                 else if (allPacketsListStarted && !line.isEmpty()) {
-                    if (line.startsWith("/*")) {
+                    if (line.contains("/*") || line.contains("*/")) {
                         System.err.println("Comments of /* this type */ are " +
                                 "forbidden inside 'oneof packet {...}' packet types specification");
                         System.exit(1);
 
                         return;
                     } else if (!line.startsWith("//") && line.contains("=") && line.contains(";")) {
-                        String packetType = line.split(" ")[0];
-                        System.out.println("Detected packet specification: " + packetType);
+                        String packetType = line.split(" ")[1];
+                        System.out.println("Detected packet specification: " + packetType
+                                + " (message/class " + Convert.snakeToCamel(packetType) + ")");
 
-                        if (!detectedPacketClasses.contains(packetType)) {
+                        if (!detectedPacketClasses.contains(Convert.snakeToCamel(packetType))) {
                             System.err.println("Packet " + packetType + " is listed inside 'oneof packet {...}' " +
                                     "packet types specification, but its class ('message " + packetType + " {...}' " +
                                     "declaration) is missing above in the proto file");
@@ -109,7 +110,10 @@ public class PTransCodeGen {
         }
 
         for (String detectedPacketClass : detectedPacketClasses) {
-            if (!allPackets.contains(detectedPacketClass)) {
+            boolean listedInOneOf = allPackets.stream().anyMatch(packetType ->
+                    detectedPacketClass.equals(Convert.snakeToCamel(packetType)));
+
+            if (!listedInOneOf) {
                 System.err.println("Packet " + detectedPacketClass + " class specificatin " +
                         "('message " + detectedPacketClass + " {...}' declaration) was detected " +
                         "above in the proto file, but the packet itself is not listed inside 'oneof " +

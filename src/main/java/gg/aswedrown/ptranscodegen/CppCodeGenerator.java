@@ -6,7 +6,7 @@ import java.util.List;
 public class CppCodeGenerator implements CodeGenerator {
 
     private static final String WRAP_MTD_DECL
-            = "std::shared_ptr<WrappedPacketData> internalGeneratedWrap(google::protobuf::Message* packet) {";
+            = "std::shared_ptr<WrappedPacketData> internalGeneratedWrap(google::protobuf::Message* packet, uint32_t sequence, uint32_t ack, uint32_t ackBitfield) {";
 
     private static final String UNWRAP_MTD_DECL
             = "std::shared_ptr<UnwrappedPacketData> internalGeneratedUnwrap(char* data, size_t dataLen) {";
@@ -76,47 +76,60 @@ public class CppCodeGenerator implements CodeGenerator {
 
     @Override
     public void appendGeneratedSourcesWrap(StringBuilder modifiedSrc, List<String> allPackets) {
-        modifiedSrc.append("        PacketWrapper wrapper;\n\n");
+        modifiedSrc.append("        PacketWrapper wrapper;\n" +
+                "\n" +
+                "        wrapper.set_sequence(sequence);\n" +
+                "        wrapper.set_ack(ack);\n" +
+                "        wrapper.set_ack_bitfield(ackBitfield);\n\n");
 
         for (int i = 0; i < allPackets.size(); i++) {
-            modifiedSrc.append("        ");
-
-            if (i > 0)
-                modifiedSrc.append("else ");
+            if (i == 0)
+                modifiedSrc.append("        ");
+            else
+                modifiedSrc.append(" else ");
 
             String packetType = allPackets.get(i);
-            String packetTypeLower = packetType.toLowerCase();
-            modifiedSrc.append("if (auto* ").append(packetTypeLower)
-                    .append(" = dynamic_cast<").append(packetType).append("*>(packet))\n" +
-                    "            wrapper.set_allocated_").append(packetTypeLower).append("(")
-                    .append(packetTypeLower).append(");\n");
+            modifiedSrc.append("if (auto* ").append(packetType)
+                    .append(" = dynamic_cast<").append(Convert.snakeToCamel(packetType))
+                    .append("*>(packet)) {\n" +
+                    "            wrapper.set_allocated_").append(packetType)
+                    .append("(").append(packetType).append(");\n" +
+                    "            size_t dataLen = wrapper.ByteSizeLong();\n" +
+                    "            std::shared_ptr<char[]> data(new char[dataLen]);\n" +
+                    "            wrapper.SerializeToArray(data.get(), static_cast<int>(dataLen));\n" +
+                    "            wrapper.release_").append(packetType).append("();\n" +
+                    "\n" +
+                    "            return std::make_shared<WrappedPacketData>(data, dataLen);\n" +
+                    "        }");
         }
 
-        modifiedSrc.append("        else\n" +
+        modifiedSrc.append(" else\n" +
                 "            // Код \"if ...\" для пакетов этого типа отсутствует выше.\n" +
                 "            // Нужно добавить! (исп. awd-ptrans-codegen)\n" +
-                "            throw std::invalid_argument(\"no implemented transformer for this packet type\");\n" +
-                "\n" +
-                "        size_t dataLen = wrapper.ByteSizeLong();\n" +
-                "        std::shared_ptr<char[]> data(new char[dataLen]);\n" +
-                "        wrapper.SerializeToArray(data.get(), static_cast<int>(dataLen));\n" +
-                "\n" +
-                "        return std::make_shared<WrappedPacketData>(data, dataLen);\n");
+                "            throw std::invalid_argument(\"no implemented transformer for this packet type\");\n");
     }
 
     @Override
     public void appendGeneratedSourcesUnrap(StringBuilder modifiedSrc, List<String> allPackets) {
         modifiedSrc.append("        PacketWrapper wrapper;\n" +
                 "        wrapper.ParseFromArray(data, static_cast<int>(dataLen));\n" +
+                "\n" +
+                "        uint32_t sequence    = wrapper.sequence();\n" +
+                "        uint32_t ack         = wrapper.ack();\n" +
+                "        uint32_t ackBitfield = wrapper.ack_bitfield();\n" +
+                "        \n" +
                 "        PacketWrapper::PacketCase packetType = wrapper.packet_case();\n" +
                 "\n" +
                 "        switch (packetType) {\n");
 
         for (String packetType : allPackets)
-            modifiedSrc.append("            case PacketWrapper::PacketCase::k").append(packetType).append(":\n" +
-                    "                return std::make_shared<UnwrappedPacketData>(packetType,\n" +
-                    "                        std::make_shared<").append(packetType).append(">(wrapper.")
-                    .append(packetType.toLowerCase()).append("()));\n\n");
+            modifiedSrc.append("            case PacketWrapper::PacketCase::k")
+                    .append(Convert.snakeToCamel(packetType)).append(":\n" +
+                    "                return std::make_shared<UnwrappedPacketData>(\n" +
+                    "                        sequence, ack, ackBitfield, packetType,\n" +
+                    "                        std::make_shared<").append(Convert.snakeToCamel(packetType))
+                    .append(">(wrapper.")
+                    .append(packetType).append("()));\n\n");
 
         modifiedSrc.append("            default:\n" +
                 "                // Неизвестный пакет - он будет проигнорирован (не передан никакому PacketListener'у).\n" +
