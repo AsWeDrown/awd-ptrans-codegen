@@ -6,7 +6,7 @@ import java.util.List;
 public class JavaCodeGenerator implements CodeGenerator {
 
     private static final String WRAP_MTD_DECL
-            = "private static byte[] internalGeneratedWrap(Message packet, int sequence, int ack, int ackBitfield) {";
+            = "private static byte[] internalGeneratedWrap(Message packet, int sequence, int ack, long ackBitfield) {";
 
     private static final String UNWRAP_MTD_DECL
             = "private static UnwrappedPacketData internalGeneratedUnwrap(byte[] data) throws InvalidProtocolBufferException {";
@@ -105,9 +105,9 @@ public class JavaCodeGenerator implements CodeGenerator {
     public void appendGeneratedSourcesUnrap(StringBuilder modifiedSrc, List<String> allPackets) {
         modifiedSrc.append("        PacketWrapper wrapper = PacketWrapper.parseFrom(data);\n" +
                 "\n" +
-                "        int sequence    = wrapper.getSequence();\n" +
-                "        int ack         = wrapper.getAck();\n" +
-                "        int ackBitfield = wrapper.getAckBitfield();\n" +
+                "        int  sequence    = wrapper.getSequence();\n" +
+                "        int  ack         = wrapper.getAck();\n" +
+                "        long ackBitfield = wrapper.getAckBitfield();\n" +
                 "\n" +
                 "        PacketWrapper.PacketCase packetType = wrapper.getPacketCase();\n" +
                 "\n" +
